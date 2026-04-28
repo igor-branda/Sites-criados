@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Notas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
+</head>
+<body>
+    <div class="container">
+        <h1>Sistema de Notas Escolares</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">
+                    {% if category == 'success' %}✅{% else %}ℹ️{% endif %}
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endwith %}
+
+        <div class="card">
+            <h2 style="margin-top: 0; border-left-color: #28a745;">➕ Adicionar Novo Aluno</h2>
+            <form method="POST" action="/adicionar">
+                <div class="form-group">
+                    <label>Nome completo</label>
+                    <input type="text" name="nome" placeholder="Ex: João Silva" required>
+                </div>
+                <div class="form-group">
+                    <label>Turma</label>
+                    <input type="text" name="turma" placeholder="Ex: 3A, 2B" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label>📝 Nota Discursiva</label>
+                        <input type="number" step="0.1" min="0" max="10" name="disc" placeholder="0 - 10" required>
+                    </div>
+                    <div class="form-group">
+                        <label>📊 Nota Objetiva</label>
+                        <input type="number" step="0.1" min="0" max="10" name="obj" placeholder="0 - 10" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>📋 Trabalhos</label>
+                    <div id="trabalhos-container"></div>
+                    <button type="button" id="add-trabalho-btn" class="btn btn-outline btn-sm">
+                        ➕ Adicionar Trabalho
+                    </button>
+                </div>
+                <button type="submit" class="btn btn-success">
+                    💾 Salvar Aluno
+                </button>
+            </form>
+        </div>
+
+        <h2>📋 Alunos Cadastrados</h2>
+
+        {% if turmas %}
+        <div class="filtro-container">
+            <span class="filtro-label">
+                <span style="font-size:1.3rem;">🔍</span> Filtrar por turma:
+            </span>
+            <select id="filtro-turma" class="filtro-select" onchange="filtrarTurma(this.value)">
+                <option value="">📋 Todas as turmas</option>
+                {% for t in turmas %}
+                    <option value="{{ t }}" {% if filtro == t %}selected{% endif %}>
+                        🏫 {{ t }}
+                    </option>
+                {% endfor %}
+            </select>
+            {% if filtro %}
+            <span class="filtro-badge">Mostrando: {{ filtro }}</span>
+            <a href="/" class="btn-limpar">✖ Limpar filtro</a>
+            {% else %}
+            <span class="filtro-badge" style="background:#e9ecef; color:#495057;">
+                {{ alunos|length }} aluno(s) no total
+            </span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="table-wrapper">
+            <table id="tabela-alunos">
+                <thead>
+                    <tr>
+                        <th id="th-nome" style="cursor: pointer;" onclick="ordenarTabela()">
+                            Nome <span id="ordem-icone">⬆️⬇️</span>
+                        </th>
+                        <th>Turma</th>
+                        <th>Discursiva</th>
+                        <th>Objetiva</th>
+                        <th>Trabalhos</th>
+                        <th>Soma</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aluno in alunos %}
+                    <tr data-nome="{{ aluno.nome }}">
+                        <td>
+                            <strong class="nome-valor">{{ aluno.nome }}</strong>
+                            <span class="edit-icon" data-editar-campo data-nome="{{ aluno.nome }}" data-campo="nome" data-valor="{{ aluno.nome }}">✏️</span>
+                        </td>
+                        <td>
+                            <span class="badge turma-badge turma-valor">{{ aluno.turma }}</span>
+                            <span class="edit-icon" data-editar-campo data-nome="{{ aluno.nome }}" data-campo="turma" data-valor="{{ aluno.turma }}">✏️</span>
+                        </td>
+                        <td>
+                            <span class="nota-valor">{{ aluno.nota_discursiva }}</span>
+                            <span class="edit-icon" data-editar-campo data-nome="{{ aluno.nome }}" data-campo="nota_discursiva" data-valor="{{ aluno.nota_discursiva }}">✏️</span>
+                        </td>
+                        <td>
+                            <span class="nota-valor">{{ aluno.nota_objetiva }}</span>
+                            <span class="edit-icon" data-editar-campo data-nome="{{ aluno.nome }}" data-campo="nota_objetiva" data-valor="{{ aluno.nota_objetiva }}">✏️</span>
+                        </td>
+                        <td class="trabalhos-cell" data-nome="{{ aluno.nome }}">
+                            <div class="trabalhos-list">
+                                {% if aluno.trabalhos %}
+                                    {% for nota in aluno.trabalhos %}
+                                    <span class="badge trabalho-badge" data-indice="{{ loop.index0 }}">
+                                        {{ nota }}
+                                        <span class="edit-icon edit-trabalho" data-nome="{{ aluno.nome }}" data-indice="{{ loop.index0 }}" data-valor="{{ nota }}">✏️</span>
+                                        <span class="delete-icon delete-trabalho" data-nome="{{ aluno.nome }}" data-indice="{{ loop.index0 }}">🗑️</span>
+                                    </span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="sem-trabalhos" style="color: #999;">—</span>
+                                {% endif %}
+                            </div>
+                            <button class="btn-add-trabalho-inline" data-nome="{{ aluno.nome }}" title="Adicionar trabalho">➕</button>
+                        </td>
+                        <td><span class="soma-total" id="soma-{{ aluno.nome | replace(' ', '_') }}">{{ aluno.soma }}</span></td>
+                        <td>
+                            <a href="/remover/{{ aluno.nome }}" onclick="return confirm('Tem certeza que deseja remover {{ aluno.nome }}?')" class="btn btn-danger btn-sm">
+                                🗑️ Remover
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #888;">
+                            Nenhum aluno cadastrado ainda. Adicione um novo!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="footer">
+            🎮 Desenvolvido por Igogo Gameplays
+        </div>
+    </div>
+
+    <script>
+        function filtrarTurma(turma) {
+            if (turma === '') {
+                window.location.href = '/';
+            } else {
+                window.location.href = '/?turma=' + encodeURIComponent(turma);
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=8"></script>
+</body>
+</html>
